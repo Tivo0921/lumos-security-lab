@@ -17,6 +17,8 @@ services:
     container_name: lumos-attacker
     # 入って作業するため常駐させる
     command: ["sleep", "infinity"]
+    ports:
+      - "8000:8000"          # cookie catcher をホストブラウザから到達可能にする
     networks:
       - labnet
 

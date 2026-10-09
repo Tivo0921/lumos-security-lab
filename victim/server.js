@@ -1,18 +1,23 @@
 // ============================================================
-//  Lumos Security Lab — 脆弱な練習用Webアプリ (XSS)
-//  ※教育・演習専用。意図的に脆弱に作ってあります。
-//    本番コードの参考にしないでください。
+//  Lumos Security Lab — 修正版 (solution ブランチ)
+//  XSS を以下の多層防御で無効化した模範解答です。
+//    ① 出力エスケープ  ② HttpOnly cookie  ③ CSP ヘッダ
+//  main ブランチ(脆弱版)と diff を取ると、どこを直したか分かります。
 // ============================================================
 const express = require("express");
 const app = express();
 app.use(express.urlencoded({ extended: true }));
 
-// 擬似「管理者セッション」。XSSで盗む対象 (document.cookie で見える)。
+// 出力エスケープ: 特殊文字を実体参照へ変換し、入力を「コード」ではなく「文字」にする。
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// ③ CSP: 万一エスケープ漏れしてもインライン script の実行を止める多層防御。
 app.use((req, res, next) => {
+  res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'");
+  // ② HttpOnly: JS(document.cookie)から読めなくし、cookie 窃取を防ぐ。
   if (!req.headers.cookie) {
-    // TODO(workshop 発展): 末尾に "; HttpOnly" を付けると document.cookie から
-    //   読めなくなり、XSSが起きても cookie 窃取を防げる。効果を確認してみよう。
-    res.setHeader("Set-Cookie", "session=SECRET-ADMIN-TOKEN-1234; Path=/");
+    res.setHeader("Set-Cookie", "session=SECRET-ADMIN-TOKEN-1234; Path=/; HttpOnly");
   }
   next();
 });
@@ -27,52 +32,42 @@ nav a{margin-right:12px}input,textarea{font-size:1rem}
 
 // --- Home ---
 app.get("/", (_req, res) => {
-  res.send(page("Lumos Vulnerable App", `
-    <p>XSS練習用アプリです。左のメニューから各課題へ。</p>
+  res.send(page("Lumos App (fixed)", `
+    <p>XSS を修正した版です。同じ payload を入れても実行されないことを確認してください。</p>
     <ul>
-      <li><b>Reflected XSS</b>: 検索ボックスに入れた値がそのまま表示されます。</li>
-      <li><b>Stored XSS</b>: 投稿した内容が保存され、全員のページに表示されます。</li>
-    </ul>
-    <p>目標: <code>alert(document.cookie)</code> を実行し、管理者セッションを表示させる。</p>`));
+      <li><b>Reflected XSS</b>: 検索ボックス（修正済み）</li>
+      <li><b>Stored XSS</b>: 掲示板（修正済み）</li>
+    </ul>`));
 });
 
-// --- 課題1: Reflected XSS ---
-// 脆弱点: q をエスケープせずHTMLに埋め込んでいる。
+// --- 課題1: Reflected XSS → 修正: 出力時に esc() ---
 app.get("/search", (req, res) => {
   const q = req.query.q || "";
-  res.send(page("Reflected XSS", `
+  res.send(page("Reflected XSS (fixed)", `
     <form method="get" action="/search">
       <input name="q" value="" placeholder="検索ワード" size="40">
       <button>検索</button>
     </form>
-    ${/* TODO(workshop ①): q をエスケープして埋め込む。ヒント: 下の esc() を使い ${esc(q)} に */""}
-    ${q ? `<p>「${q}」の検索結果は見つかりませんでした。</p>` : ""}
-    <p class="hint">ヒント: URL の <code>?q=</code> に直接 payload を入れてみる。</p>`));
+    ${q ? `<p>「${esc(q)}」の検索結果は見つかりませんでした。</p>` : ""}
+    <p class="hint">payload を入れても文字として表示されるだけ。</p>`));
 });
 
-// --- 課題2: Stored XSS ---
-// 脆弱点: 投稿本文をエスケープせず保存・表示している。
+// --- 課題2: Stored XSS → 修正: 表示時に esc() ---
+// 保存は生のままでよい(入力は信頼せず「出力時」に無害化するのが基本)。
 const comments = [];
-
-// TODO(workshop ②): 出力エスケープ関数。これを使って上書きを防ぐ。
-//   solution ブランチに模範解答あり。
-// const esc = s => s.replace(/[&<>"']/g, c =>
-//   ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
-
 app.get("/guestbook", (_req, res) => {
-  // TODO(workshop ②): ${c} をエスケープして ${esc(c)} にする
-  const list = comments.map(c => `<div class="card">${c}</div>`).join("") ||
+  const list = comments.map(c => `<div class="card">${esc(c)}</div>`).join("") ||
     "<p>まだ投稿はありません。</p>";
-  res.send(page("Stored XSS — Guestbook", `
+  res.send(page("Stored XSS — Guestbook (fixed)", `
     <form method="post" action="/guestbook">
       <textarea name="comment" rows="3" cols="50" placeholder="コメントを書く"></textarea><br>
       <button>投稿</button>
     </form><h2>投稿一覧</h2>${list}
-    <p class="hint">ヒント: 投稿した payload はページを開いた全員のブラウザで実行される。</p>`));
+    <p class="hint">payload を投稿しても実行されず、文字として表示される。</p>`));
 });
 app.post("/guestbook", (req, res) => {
   if (req.body.comment) comments.push(req.body.comment);
   res.redirect("/guestbook");
 });
 
-app.listen(3000, () => console.log("victim app listening on :3000"));
+app.listen(3000, () => console.log("victim app (fixed) listening on :3000"));

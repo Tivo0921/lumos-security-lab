@@ -1,0 +1,29 @@
+# Lumos Security Lab — Stage 1: XSS 基礎演習
+# 使い方:  docker compose up --build
+#   - victim:   http://localhost:8080   (ブラウザで開いて popup を確認)
+#   - attacker: docker compose exec attacker bash  (ここに入って作業)
+
+services:
+  victim:
+    build: ./victim
+    container_name: lumos-victim
+    ports:
+      - "8080:3000"          # ホストのブラウザから見るため公開
+    networks:
+      - labnet
+
+  attacker:
+    build: ./attacker
+    container_name: lumos-attacker
+    # 入って作業するため常駐させる
+    command: ["sleep", "infinity"]
+    networks:
+      - labnet
+
+networks:
+  labnet:
+    driver: bridge
+    # internal: true にすると演習ネットワークが外部インターネットから遮断される。
+    # victim を localhost で見られなくなるため Stage1 では false のまま。
+    # 完全隔離したい場合はコメントを外す。
+    # internal: true

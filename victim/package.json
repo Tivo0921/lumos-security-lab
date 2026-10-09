@@ -1,0 +1,9 @@
+{
+  "name": "lumos-victim",
+  "version": "1.0.0",
+  "description": "Intentionally vulnerable web app for XSS training (Lumos Security Lab)",
+  "main": "server.js",
+  "dependencies": {
+    "express": "4.19.2"
+  }
+}

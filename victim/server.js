@@ -10,6 +10,8 @@ app.use(express.urlencoded({ extended: true }));
 // 擬似「管理者セッション」。XSSで盗む対象 (document.cookie で見える)。
 app.use((req, res, next) => {
   if (!req.headers.cookie) {
+    // TODO(workshop 発展): 末尾に "; HttpOnly" を付けると document.cookie から
+    //   読めなくなり、XSSが起きても cookie 窃取を防げる。効果を確認してみよう。
     res.setHeader("Set-Cookie", "session=SECRET-ADMIN-TOKEN-1234; Path=/");
   }
   next();
@@ -43,6 +45,7 @@ app.get("/search", (req, res) => {
       <input name="q" value="" placeholder="検索ワード" size="40">
       <button>検索</button>
     </form>
+    ${/* TODO(workshop ①): q をエスケープして埋め込む。ヒント: 下の esc() を使い ${esc(q)} に */""}
     ${q ? `<p>「${q}」の検索結果は見つかりませんでした。</p>` : ""}
     <p class="hint">ヒント: URL の <code>?q=</code> に直接 payload を入れてみる。</p>`));
 });
@@ -50,7 +53,14 @@ app.get("/search", (req, res) => {
 // --- 課題2: Stored XSS ---
 // 脆弱点: 投稿本文をエスケープせず保存・表示している。
 const comments = [];
+
+// TODO(workshop ②): 出力エスケープ関数。これを使って上書きを防ぐ。
+//   solution ブランチに模範解答あり。
+// const esc = s => s.replace(/[&<>"']/g, c =>
+//   ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+
 app.get("/guestbook", (_req, res) => {
+  // TODO(workshop ②): ${c} をエスケープして ${esc(c)} にする
   const list = comments.map(c => `<div class="card">${c}</div>`).join("") ||
     "<p>まだ投稿はありません。</p>";
   res.send(page("Stored XSS — Guestbook", `

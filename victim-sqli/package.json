@@ -1,0 +1,10 @@
+{
+  "name": "lumos-victim-sqli",
+  "version": "1.0.0",
+  "description": "Intentionally vulnerable web app for SQL injection training (Lumos Security Lab)",
+  "main": "server.js",
+  "dependencies": {
+    "express": "4.19.2",
+    "better-sqlite3": "11.3.0"
+  }
+}

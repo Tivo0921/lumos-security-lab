@@ -12,6 +12,14 @@ services:
     networks:
       - labnet
 
+  victim-sqli:
+    build: ./victim-sqli
+    container_name: lumos-victim-sqli
+    ports:
+      - "8081:3000"          # SQLi 課題用 (XSSの victim とは別アプリ)
+    networks:
+      - labnet
+
   attacker:
     build: ./attacker
     container_name: lumos-attacker

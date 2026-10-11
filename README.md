@@ -63,6 +63,26 @@ payload 例:
 ※ホストのブラウザからは `attacker` 名前解決ができないため、
 同一ネットワーク内の headless ブラウザで試す形になります（Stage2で扱う想定）。
 
+## Stage 1.5: SQL Injection
+
+別アプリ `victim-sqli`（http://localhost:8081）で SQLi を学びます。
+
+### 課題1: 認証バイパス
+`/login` は `... WHERE username='$u' AND password='$p'` を文字列連結で組み立てています。
+
+- password 欄に `' OR '1'='1' -- ` を入力 → パスワードを知らずに admin でログイン成功
+- 画面に実行SQLが表示されるので、なぜ通ったかを確認する
+
+### 課題2: UNION ベース情報抽出
+`/products?q=` は `... WHERE name LIKE '%$q%'`（3カラム）。
+
+- 検索欄に `%' UNION SELECT id, username, password FROM users -- `
+- 商品一覧に `users` テーブルの username / password が混ざって表示される
+
+### 対策（solution ブランチ）
+- **プレースホルダ（パラメータ化クエリ）** を使い、入力を「データ」として渡す
+  （文字列連結をやめる）。これが SQLi の根本対策。
+
 ## 学習ポイント
 
 - Reflected と Stored の違い（影響範囲・持続性）

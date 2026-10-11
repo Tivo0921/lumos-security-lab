@@ -1,7 +1,7 @@
 // ============================================================
-//  Lumos Security Lab — 脆弱な練習用Webアプリ (SQL Injection)
-//  ※教育・演習専用。意図的に脆弱に作ってあります。
-//    本番コードの参考にしないでください。
+//  Lumos Security Lab — 修正版 (solution) SQL Injection
+//  対策: プレースホルダ(パラメータ化クエリ)で入力を「データ」として渡す。
+//    文字列連結をやめることで SQLi が根本的に成立しなくなる。
 // ============================================================
 const express = require("express");
 const Database = require("better-sqlite3");
@@ -49,13 +49,14 @@ app.get("/login", (_req, res) => {
       <p>password: <input name="password"></p>
       <button>ログイン</button>
     </form>
-    <p class="hint">ヒント: password 欄に <code>' OR '1'='1' -- </code> を試す。</p>`));
+    <p class="hint">修正済み: <code>' OR '1'='1' -- </code> を入れても認証は突破できない。</p>`));
 });
 app.post("/login", (req, res) => {
   const { username = "", password = "" } = req.body;
-  const sql = `SELECT * FROM users WHERE username = '${username}' AND password = '${password}'`;
+  // 対策: ? プレースホルダに値を束縛。入力はSQL構文ではなくデータとして扱われる。
+  const sql = `SELECT * FROM users WHERE username = ? AND password = ?`;
   let row;
-  try { row = db.prepare(sql).get(); } catch (e) {
+  try { row = db.prepare(sql).get(username, password); } catch (e) {
     return res.send(page("Login", `<p class="ng">SQLエラー: ${e.message}</p>
       <p>実行SQL: <code>${sql}</code></p>`));
   }
@@ -75,8 +76,9 @@ app.get("/products", (req, res) => {
   const q = req.query.q;
   let rows = [], sql = "";
   if (q !== undefined) {
-    sql = `SELECT id, name, price FROM products WHERE name LIKE '%${q}%'`;
-    try { rows = db.prepare(sql).all(); } catch (e) {
+    // 対策: LIKE のワイルドカードは値側に含め、? で束縛する。
+    sql = `SELECT id, name, price FROM products WHERE name LIKE ?`;
+    try { rows = db.prepare(sql).all(`%${q}%`); } catch (e) {
       return res.send(page("Products", `<p class="ng">SQLエラー: ${e.message}</p>
         <p>実行SQL: <code>${sql}</code></p>`));
     }
@@ -91,7 +93,7 @@ app.get("/products", (req, res) => {
       <input name="q" placeholder="商品名で検索" size="40"><button>検索</button>
     </form>${table}
     ${sql ? `<p>実行SQL: <code>${sql}</code></p>` : ""}
-    <p class="hint">ヒント: <code>%' UNION SELECT id, username, password FROM users -- </code></p>`));
+    <p class="hint">修正済み: UNION payload を入れても検索語として扱われ、抽出できない。</p>`));
 });
 
 app.listen(3000, () => console.log("victim-sqli app listening on :3000"));
